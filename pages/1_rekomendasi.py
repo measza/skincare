@@ -3,61 +3,52 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-st.set_page_config(page_title="Rekomendasi Skincare")
-st.title("🔍 Rekomendasi Produk Skincare")
+st.set_page_config(page_title="Rekomendasi")
+st.title("🔍 Rekomendasi Produk")
 
-# Load Dataset
+st.markdown("""
+<div style="display:flex; gap:30px; margin-bottom:20px;">
+  <a href="../" style="font-weight:bold;">🏠 Home</a>
+  <a href="2_produk" style="font-weight:bold;">📦 Produk</a>
+</div>
+""", unsafe_allow_html=True)
+
 @st.cache_data
-def load_data():
-    df = pd.read_csv("cosmetic_p.csv")
-    df.columns = df.columns.str.lower()
-    df["ingredients"] = df["ingredients"].fillna("").str.lower()
-    return df
+def load_csv():
+    return pd.read_csv("../cosmetic_p.csv")
 
-df = load_data()
+df = load_csv()
+df.columns = df.columns.str.lower()
+df["ingredients"] = df["ingredients"].fillna("").str.lower()
 
-# Aturan Rule-Based
 rules = {
     "Mencerahkan Wajah": ["niacinamide", "vitamin c", "alpha arbutin"],
     "Mengurangi Jerawat": ["salicylic acid", "benzoyl peroxide", "tea tree"],
-    "Anti Aging": ["retinol", "peptide", "coenzyme q10"],
+    "Anti Aging": ["retinol", "peptide"],
     "Melembapkan Kulit": ["hyaluronic acid", "ceramide", "glycerin"],
 }
 
-# Input dari pengguna
-tujuan = st.selectbox("Tujuan Skincare", list(rules.keys()))
-jenis_produk = st.selectbox("Jenis Produk", df["label"].unique())
-jenis_kulit = st.multiselect("Jenis Kulit", ["combination", "dry", "normal", "oily", "sensitive"])
-bobot_bahan = st.slider("Bobot Ingredient vs Rating", 0.0, 1.0, 0.7)
+tujuan = st.selectbox("Tujuan", list(rules.keys()))
+jproduk = st.selectbox("Jenis Produk", df["label"].unique())
+jk = st.multiselect("Jenis Kulit", ["normal","dry","oily","combination","sensitive"])
+bobot = st.slider("Bobot Bahan vs Rating", 0.0, 1.0, 0.7)
 
-# Proses Rekomendasi
-if st.button("🔎 Tampilkan Rekomendasi"):
-    keywords = rules[tujuan]
-    data = df[df["label"].str.lower() == jenis_produk.lower()].copy()
-
-    # Filter berdasarkan keyword
-    def cocok(text):
-        return any(k in text for k in keywords)
-
-    data = data[data["ingredients"].apply(cocok)]
-
-    # Filter jenis kulit
-    for jk in jenis_kulit:
-        data = data[data[jk] == 1]
-
-    if data.empty:
-        st.warning("Tidak ditemukan produk yang cocok.")
+if st.button("Cari"):
+    subset = df[df["label"].str.lower()==jproduk.lower()].copy()
+    news = subset[subset["ingredients"].apply(lambda t: any(k in t for k in rules[tujuan]))]
+    for s in jk:
+        news = news[news[s]==1]
+    if news.empty:
+        st.warning("Tidak ada produk cocok.")
     else:
         tfidf = TfidfVectorizer()
-        tfidf_matrix = tfidf.fit_transform(data["ingredients"])
-        query = tfidf.transform([" ".join(keywords)])
-        similarity = cosine_similarity(query, tfidf_matrix).flatten()
-        data["similarity"] = similarity
-        data["score"] = bobot_bahan * data["similarity"] + (1 - bobot_bahan) * (data["rank"] / 5)
-        data = data.sort_values("score", ascending=False)
-
-        for _, row in data.iterrows():
-            st.subheader(f"{row['name']} ({row['brand']})")
-            st.write(f"Harga: ${row['price']} | Rating: {row['rank']}")
-            st.write(f"Ingredients: {row['ingredients'][:250]}...")
+        M = tfidf.fit_transform(news["ingredients"])
+        vec = tfidf.transform([" ".join(rules[tujuan])])
+        sim = cosine_similarity(vec, M).flatten()
+        news["score"] = bobot * sim + (1-bobot)*(news["rank"]/5)
+        news = news.sort_values("score", ascending=False)
+        for _, r in news.iterrows():
+            st.subheader(f"{r['name']} ({r['brand']})")
+            st.write(f"Harga: ${r['price']} | Rating: {r['rank']}")
+            st.write(f"Ingredients: {r['ingredients'][:200]}...")
             st.markdown("---")
