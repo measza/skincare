@@ -138,11 +138,11 @@ st.markdown(f"""
 st.markdown("""
     <div class="navbar">
         <div class="nav-left">
-            <a href="/" class="nav-button">Utama</a>
+            <a href="/" class="nav-button">Home</a>
         </div>
         <div class="logo">KYMIRA</div>
         <div class="nav-right">
-            <a href="/2_produk" class="nav-button">Produk</a>
+            <a href="/2_produk" class="nav-button">Products</a>
         </div>
     </div>
 """, unsafe_allow_html=True)
